@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31919.166
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ApisConsulta.Api", "ApisConsulta.Api\ApisConsulta.Api.csproj", "{5E4D4A0F-3B2F-4C1E-8A5F-9D2C8E1F6A3B}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ApisConsulta.Application", "ApisConsulta.Application\ApisConsulta.Application.csproj", "{7C3E2F1A-9B6D-4E5F-8C2A-1D3E4F5A6B7C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ApisConsulta.Infrastructure", "ApisConsulta.Infrastructure\ApisConsulta.Infrastructure.csproj", "{9F2A4B5C-6D7E-4F1A-2B3C-4D5E6F7A8B9C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5E4D4A0F-3B2F-4C1E-8A5F-9D2C8E1F6A3B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E4D4A0F-3B2F-4C1E-8A5F-9D2C8E1F6A3B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E4D4A0F-3B2F-4C1E-8A5F-9D2C8E1F6A3B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E4D4A0F-3B2F-4C1E-8A5F-9D2C8E1F6A3B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7C3E2F1A-9B6D-4E5F-8C2A-1D3E4F5A6B7C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7C3E2F1A-9B6D-4E5F-8C2A-1D3E4F5A6B7C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7C3E2F1A-9B6D-4E5F-8C2A-1D3E4F5A6B7C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7C3E2F1A-9B6D-4E5F-8C2A-1D3E4F5A6B7C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9F2A4B5C-6D7E-4F1A-2B3C-4D5E6F7A8B9C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9F2A4B5C-6D7E-4F1A-2B3C-4D5E6F7A8B9C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9F2A4B5C-6D7E-4F1A-2B3C-4D5E6F7A8B9C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9F2A4B5C-6D7E-4F1A-2B3C-4D5E6F7A8B9C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
