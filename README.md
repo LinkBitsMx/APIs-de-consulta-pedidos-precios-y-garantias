@@ -118,16 +118,30 @@ GET /api/precios/productos/{codigo|sku}
 
 **Respuesta (200):**
 
+La respuesta incluye los precios del producto separados por sucursal.
+
 ```json
 {
   "productoId": "555302",
   "codigo": "000001",
   "nombre": "FREIDORA DE AIRE FDA07",
   "sku": "FDA07",
-  "precioMayoreo": 560.0,
-  "precioCaja": 560.0,
-  "moneda": "MXN",
-  "incluyeIva": true
+  "preciosPorSucursal": [
+    {
+      "sucursal": "México",
+      "precioMayoreo": 560.0,
+      "precioCaja": 560.0,
+      "moneda": "MXN",
+      "incluyeIva": true
+    },
+    {
+      "sucursal": "Sucursal Monterrey",
+      "precioMayoreo": 560.0,
+      "precioCaja": 560.0,
+      "moneda": "MXN",
+      "incluyeIva": true
+    }
+  ]
 }
 ```
 
