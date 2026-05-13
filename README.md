@@ -139,32 +139,54 @@ GET /api/garantias/{folioTicket}
 
 **Respuesta (200):**
 
+La respuesta incluye todos los productos asociados al folio de garantía.
+
 ```json
 {
-  "folioTicket": "CSLP2A101255-D20260506-ID8599",
-  "producto": "PANTALLA LED Magnatron 3.9",
-  "fechaIngreso": "2026-05-06T17:31:55.35",
-  "resultado": "No reparado",
-  "estatus": "rechazada"
+  "folioTicket": "CMIC1E101898-D20260401-ID8503",
+  "productos": [
+    {
+      "producto": "BOCINA KTS-1853",
+      "fechaIngreso": "2026-04-01T10:07:13.94",
+      "resultado": "No reparado",
+      "estatus": "finalizado"
+    },
+    {
+      "producto": "FOCO LED S48W02",
+      "fechaIngreso": "2026-04-01T10:07:13.94",
+      "resultado": "No reparado",
+      "estatus": "finalizado"
+    },
+    {
+      "producto": "TIRA LED T2835RGB06",
+      "fechaIngreso": "2026-04-01T10:07:13.94",
+      "resultado": "No reparado",
+      "estatus": "finalizado"
+    }
+  ]
 }
 ```
 
 **Valores posibles de `estatus`:**
 
 - `pendiente`
-- `en_revision`
-- `en_proceso`
-- `aprobada`
-- `rechazada`
-- `nota_de_credito`
+- `revision`
+- `activo`
+- `finalizado`
+
+**Valores posibles de `resultado`:**
+
+- `Reparado`
+- `No reparado`
+- `No aplica`
+- `Otros`
+- `Nota de credito`
 
 ## Testing
 
 ```powershell
 .\test-apis.ps1
 ```
-
-**Resultado:** 25/25 pruebas pasando
 
 ## Errores Comunes
 
