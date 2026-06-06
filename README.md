@@ -102,32 +102,48 @@ GET /api/envios/{folio}
 ```json
 [
   {
-    "pedidoId": "78701",
-    "paqueteria": "PAQUETEXPRESS",
+    "pedidoId": "25086",
+    "paqueteria": "FLETERA",
     "guias": [
       {
-        "guia": "MEX14PP0067946003003",
-        "trackingUrl": "https://www.paquetexpress.com.mx/rastreo/MEX14PP0067946003003"
+        "guia": "Sin guia",
+        "trackingUrl": null
       }
     ],
     "estatusEnvio": "activo",
-    "fechaPedido": "2026-04-03T10:51:46.06"
+    "fechaPedido": "2025-09-18T12:35:39.553"
   },
   {
-    "pedidoId": "78702",
+    "pedidoId": "25087",
     "paqueteria": "PAQUETEXPRESS",
     "guias": [
       {
-        "guia": "MEX14PP0067946003004",
-        "trackingUrl": "https://www.paquetexpress.com.mx/rastreo/MEX14PP0067946003004"
+        "guia": "MEX01PP3469501006006",
+        "trackingUrl": "https://www.paquetexpress.com.mx/rastreo/MEX01PP3469501006006"
       },
       {
-        "guia": "MEX14PP0067946003005",
-        "trackingUrl": "https://www.paquetexpress.com.mx/rastreo/MEX14PP0067946003005"
+        "guia": "MEX01PP3469501006005",
+        "trackingUrl": "https://www.paquetexpress.com.mx/rastreo/MEX01PP3469501006005"
+      },
+      {
+        "guia": "MEX01PP3469501006004",
+        "trackingUrl": "https://www.paquetexpress.com.mx/rastreo/MEX01PP3469501006004"
+      },
+      {
+        "guia": "MEX01PP3469501006003",
+        "trackingUrl": "https://www.paquetexpress.com.mx/rastreo/MEX01PP3469501006003"
+      },
+      {
+        "guia": "MEX01PP3469501006002",
+        "trackingUrl": "https://www.paquetexpress.com.mx/rastreo/MEX01PP3469501006002"
+      },
+      {
+        "guia": "MEX01PP3469501006001",
+        "trackingUrl": "https://www.paquetexpress.com.mx/rastreo/MEX01PP3469501006001"
       }
     ],
     "estatusEnvio": "activo",
-    "fechaPedido": "2026-04-03T10:52:10.12"
+    "fechaPedido": "2025-09-18T12:35:39.557"
   }
 ]
 ```
