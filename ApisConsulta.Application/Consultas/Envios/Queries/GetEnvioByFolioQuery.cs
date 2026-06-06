@@ -4,17 +4,17 @@ using MediatR;
 
 namespace ApisConsulta.Application.Consultas.Envios.Queries;
 
-public class GetEnvioByFolioQuery : IRequest<EnvioResponse?>
+public class GetEnvioByFolioQuery : IRequest<IReadOnlyList<EnvioResponse>>
 {
     public string Folio { get; set; } = string.Empty;
 }
 
-public class GetEnvioByFolioQueryHandler : IRequestHandler<GetEnvioByFolioQuery, EnvioResponse?>
+public class GetEnvioByFolioQueryHandler : IRequestHandler<GetEnvioByFolioQuery, IReadOnlyList<EnvioResponse>>
 {
     private readonly IEnvioRepository _repository;
 
     public GetEnvioByFolioQueryHandler(IEnvioRepository repository) => _repository = repository;
 
-    public Task<EnvioResponse?> Handle(GetEnvioByFolioQuery request, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<EnvioResponse>> Handle(GetEnvioByFolioQuery request, CancellationToken cancellationToken)
         => _repository.GetByFolioAsync(request.Folio);
 }

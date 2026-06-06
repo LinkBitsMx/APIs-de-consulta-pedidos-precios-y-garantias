@@ -100,14 +100,36 @@ GET /api/envios/{folio}
 **Respuesta (200):**
 
 ```json
-{
-  "pedidoId": "78701",
-  "paqueteria": "PAQUETEXPRESS",
-  "guia": "MEX14PP0067946003003",
-  "trackingUrl": "https://www.paquetexpress.com.mx/rastreo/MEX14PP0067946003003",
-  "estatusEnvio": "activo",
-  "fechaPedido": "2026-04-03T10:51:46.06"
-}
+[
+  {
+    "pedidoId": "78701",
+    "paqueteria": "PAQUETEXPRESS",
+    "guias": [
+      {
+        "guia": "MEX14PP0067946003003",
+        "trackingUrl": "https://www.paquetexpress.com.mx/rastreo/MEX14PP0067946003003"
+      }
+    ],
+    "estatusEnvio": "activo",
+    "fechaPedido": "2026-04-03T10:51:46.06"
+  },
+  {
+    "pedidoId": "78702",
+    "paqueteria": "PAQUETEXPRESS",
+    "guias": [
+      {
+        "guia": "MEX14PP0067946003004",
+        "trackingUrl": "https://www.paquetexpress.com.mx/rastreo/MEX14PP0067946003004"
+      },
+      {
+        "guia": "MEX14PP0067946003005",
+        "trackingUrl": "https://www.paquetexpress.com.mx/rastreo/MEX14PP0067946003005"
+      }
+    ],
+    "estatusEnvio": "activo",
+    "fechaPedido": "2026-04-03T10:52:10.12"
+  }
+]
 ```
 
 ## API 4: Precios de Producto

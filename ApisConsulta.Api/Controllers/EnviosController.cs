@@ -20,7 +20,7 @@ public class EnviosController : ControllerBase
         var query = new GetEnvioByFolioQuery { Folio = folio };
         var result = await _mediator.Send(query);
 
-        if (result == null)
+        if (result.Count == 0)
             return NotFound();
 
         return Ok(result);

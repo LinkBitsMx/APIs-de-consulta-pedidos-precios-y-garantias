@@ -4,5 +4,5 @@ namespace ApisConsulta.Application.Interfaces;
 
 public interface IEnvioRepository
 {
-    Task<EnvioResponse?> GetByFolioAsync(string folio);
+    Task<IReadOnlyList<EnvioResponse>> GetByFolioAsync(string folio);
 }

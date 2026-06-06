@@ -10,14 +10,14 @@ public class EnvioRepository : IEnvioRepository
     private readonly ApplicationDbContext _context;
     public EnvioRepository(ApplicationDbContext context) => _context = context;
 
-    public async Task<EnvioResponse?> GetByFolioAsync(string folio)
+    public async Task<IReadOnlyList<EnvioResponse>> GetByFolioAsync(string folio)
     {
         if (string.IsNullOrWhiteSpace(folio))
-            return null;
+            return Array.Empty<EnvioResponse>();
 
-        return await _context.Database
-            .SqlQuery<EnvioResponse>($@"
-                SELECT TOP 1
+        var rows = await _context.Database
+            .SqlQuery<EnvioRow>($@"
+                SELECT
                     CAST(q.id AS VARCHAR(50)) AS PedidoId,
                     CASE
                         WHEN envio.PaqueteriaRaw IS NULL THEN 'No asignada'
@@ -51,7 +51,41 @@ public class EnvioRepository : IEnvioRepository
                 ) envio
                 WHERE q.billCode = {folio}
                   AND (q.is_hide = 0 OR q.is_hide IS NULL)
-                ORDER BY ssc.id DESC")
-            .FirstOrDefaultAsync();
+                ORDER BY q.id, ssc.id DESC")
+            .ToListAsync();
+
+        return rows
+            .GroupBy(row => row.PedidoId)
+            .Select(group =>
+            {
+                var first = group.First();
+
+                return new EnvioResponse
+                {
+                    PedidoId = first.PedidoId,
+                    Paqueteria = first.Paqueteria,
+                    Guias = group
+                        .Select(row => new EnvioGuiaResponse
+                        {
+                            Guia = row.Guia,
+                            TrackingUrl = row.TrackingUrl
+                        })
+                        .DistinctBy(guia => new { guia.Guia, guia.TrackingUrl })
+                        .ToList(),
+                    EstatusEnvio = first.EstatusEnvio,
+                    FechaPedido = first.FechaPedido
+                };
+            })
+            .ToList();
+    }
+
+    private sealed class EnvioRow
+    {
+        public string PedidoId { get; set; } = string.Empty;
+        public string Paqueteria { get; set; } = string.Empty;
+        public string Guia { get; set; } = string.Empty;
+        public string? TrackingUrl { get; set; }
+        public string EstatusEnvio { get; set; } = string.Empty;
+        public DateTime FechaPedido { get; set; }
     }
 }
