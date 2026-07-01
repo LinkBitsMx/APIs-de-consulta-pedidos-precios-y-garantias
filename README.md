@@ -9,6 +9,7 @@ API REST para consultar información del sistema BambooERP desde canales externo
 - **API 3:** Consulta de Envíos
 - **API 4:** Precios de Productos
 - **API 5:** Garantías
+- **API 6:** Pre-órdenes (alta de órdenes sin confirmar)
 
 ## Requisitos
 
@@ -233,6 +234,96 @@ La respuesta incluye todos los productos asociados al folio de garantía.
 - `No aplica`
 - `Otros`
 - `Nota de credito`
+
+## API 6: Pre-órdenes
+
+Permite que un sistema externo de clientes envíe **pre-órdenes** (órdenes sin
+confirmar). Quedan en estatus `PENDIENTE` hasta que el vendedor las toma y las
+convierte en una cotización.
+
+> Requiere ejecutar una sola vez el script `database/request_quotation.sql` sobre
+> la BD BambooERP para crear las tablas `request_quotation` y `request_quotation_items`.
+
+### Crear pre-orden
+
+```
+POST /api/preordenes
+```
+
+**Body:**
+
+```json
+{
+  "customerCode": "C00123",
+  "email": "compras@cliente.com",
+  "phone": "8112345678",
+  "notes": "Entregar en horario matutino",
+  "items": [
+    { "productCode": "000001", "quantity": 2, "unitPrice": 560.0 },
+    { "productCode": "FDA07", "quantity": 5, "unitPrice": 120.0 }
+  ]
+}
+```
+
+`customerCode` e `items` (mínimo uno) son obligatorios. El `total` se calcula en el
+servidor a partir de `quantity * unitPrice` de cada item. La respuesta incluye un
+`folio` legible (`customerCode` + id, ej. `C00123-00012`) generado por el servidor
+para identificar la solicitud.
+
+**Respuesta (201 Created):**
+
+```json
+{
+  "id": 12,
+  "folio": "C00123-00012",
+  "customerCode": "C00123",
+  "email": "compras@cliente.com",
+  "phone": "8112345678",
+  "notes": "Entregar en horario matutino",
+  "status": "PENDIENTE",
+  "isApproved": false,
+  "total": 1720.0,
+  "createdAt": "2026-06-26T10:15:00.000",
+  "items": [
+    { "id": 31, "productCode": "000001", "quantity": 2, "unitPrice": 560.0, "amount": 1120.0 },
+    { "id": 32, "productCode": "FDA07", "quantity": 5, "unitPrice": 120.0, "amount": 600.0 }
+  ]
+}
+```
+
+### Listar pre-órdenes
+
+```
+GET /api/preordenes
+GET /api/preordenes?status=PENDIENTE
+```
+
+**Respuesta (200):**
+
+```json
+[
+  {
+    "id": 12,
+    "folio": "C00123-00012",
+    "customerCode": "C00123",
+    "status": "PENDIENTE",
+    "isApproved": false,
+    "total": 1720.0,
+    "totalItems": 2,
+    "createdAt": "2026-06-26T10:15:00.000"
+  }
+]
+```
+
+### Detalle de pre-orden
+
+```
+GET /api/preordenes/{id}
+```
+
+Devuelve la pre-orden con sus items (mismo formato que la respuesta de creación).
+
+**Valores posibles de `status`:** `PENDIENTE`, `TOMADA`, `CONVERTIDA`, `CANCELADA`
 
 ## Testing
 

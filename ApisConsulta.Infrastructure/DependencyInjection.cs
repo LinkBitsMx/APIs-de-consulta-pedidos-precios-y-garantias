@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<IEnvioRepository, EnvioRepository>();
         services.AddScoped<IPrecioRepository, PrecioRepository>();
         services.AddScoped<IGarantiaRepository, GarantiaRepository>();
+        services.AddScoped<IPreOrdenRepository, PreOrdenRepository>();
         services.AddScoped<IAuthService, AuthService>();
 
         return services;
