@@ -35,3 +35,31 @@ public class PreOrdenResumenResponse
     public int TotalItems { get; set; }
     public DateTime CreatedAt { get; set; }
 }
+
+/// <summary>Vista agregada para métricas de cada pre-orden.</summary>
+public class PreOrdenMetricasResponse
+{
+    public int Id { get; set; }
+    public string Folio { get; set; } = string.Empty;
+    public string CustomerCode { get; set; } = string.Empty;
+    public string CustomerName { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public bool IsApproved { get; set; }
+    public int RequestedItemsCount { get; set; }
+    public int RequestedQuantity { get; set; }
+    public decimal RequestedAmount { get; set; }
+    public int ConfirmedQuantity { get; set; }
+    public decimal ConfirmedAmount { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public List<PreOrdenMetricItemResponse> Items { get; set; } = [];
+}
+
+public class PreOrdenMetricItemResponse
+{
+    public int Id { get; set; }
+    public string ProductCode { get; set; } = string.Empty;
+    public int RequestedQuantity { get; set; }
+    public decimal RequestedAmount { get; set; }
+    public int ConfirmedQuantity { get; set; }
+    public decimal ConfirmedAmount { get; set; }
+}

@@ -1,4 +1,5 @@
 using ApisConsulta.Application.Interfaces;
+using ApisConsulta.Application.PreOrdenes.Exceptions;
 using ApisConsulta.Application.PreOrdenes.Requests;
 using ApisConsulta.Application.PreOrdenes.Response;
 using MediatR;
@@ -16,6 +17,12 @@ public class CrearPreOrdenCommandHandler : IRequestHandler<CrearPreOrdenCommand,
 
     public CrearPreOrdenCommandHandler(IPreOrdenRepository repository) => _repository = repository;
 
-    public Task<PreOrdenResponse> Handle(CrearPreOrdenCommand request, CancellationToken cancellationToken)
-        => _repository.CrearAsync(request.Datos);
+    public async Task<PreOrdenResponse> Handle(CrearPreOrdenCommand request, CancellationToken cancellationToken)
+    {
+        var existeCustomer = await _repository.ExisteCustomerAsync(request.Datos.CustomerCode);
+        if (!existeCustomer)
+            throw new CustomerNoEncontradoException(request.Datos.CustomerCode);
+
+        return await _repository.CrearAsync(request.Datos);
+    }
 }

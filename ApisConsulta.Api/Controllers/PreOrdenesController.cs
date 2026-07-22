@@ -1,4 +1,5 @@
 using ApisConsulta.Application.PreOrdenes.Commands;
+using ApisConsulta.Application.PreOrdenes.Exceptions;
 using ApisConsulta.Application.PreOrdenes.Queries;
 using ApisConsulta.Application.PreOrdenes.Requests;
 using MediatR;
@@ -24,9 +25,16 @@ public class PreOrdenesController : ControllerBase
     public async Task<IActionResult> Crear([FromBody] CrearPreOrdenRequest request)
     {
         var command = new CrearPreOrdenCommand { Datos = request };
-        var result = await _mediator.Send(command);
 
-        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+        try
+        {
+            var result = await _mediator.Send(command);
+            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+        }
+        catch (CustomerNoEncontradoException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     /// <summary>Lista las pre-órdenes, opcionalmente filtradas por estatus.</summary>
@@ -34,6 +42,16 @@ public class PreOrdenesController : ControllerBase
     public async Task<IActionResult> GetAll([FromQuery] string? status)
     {
         var query = new GetPreOrdenesQuery { Status = status };
+        var result = await _mediator.Send(query);
+
+        return Ok(result);
+    }
+
+    /// <summary>Devuelve métricas resumidas por pre-orden: cliente, lo solicitado y lo confirmado.</summary>
+    [HttpGet("metricas")]
+    public async Task<IActionResult> GetMetricas([FromQuery] string? status)
+    {
+        var query = new GetPreOrdenMetricasQuery { Status = status };
         var result = await _mediator.Send(query);
 
         return Ok(result);

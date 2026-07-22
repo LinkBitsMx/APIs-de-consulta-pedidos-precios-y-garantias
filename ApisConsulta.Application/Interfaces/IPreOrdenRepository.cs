@@ -5,7 +5,10 @@ namespace ApisConsulta.Application.Interfaces;
 
 public interface IPreOrdenRepository
 {
+    /// <summary>Indica si existe un cliente con el customer_code indicado en la tabla customers.</summary>
+    Task<bool> ExisteCustomerAsync(string customerCode);
     Task<PreOrdenResponse> CrearAsync(CrearPreOrdenRequest request);
     Task<IReadOnlyList<PreOrdenResumenResponse>> GetAllAsync(string? estatus);
+    Task<IReadOnlyList<PreOrdenMetricasResponse>> GetMetricasAsync(string? estatus);
     Task<PreOrdenResponse?> GetByIdAsync(int id);
 }
