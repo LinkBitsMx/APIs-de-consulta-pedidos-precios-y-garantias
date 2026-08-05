@@ -32,12 +32,18 @@ public class PreOrdenRepository : IPreOrdenRepository
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
+        // OUTPUT ... INTO una variable de tabla: necesario porque en producción la tabla
+        // request_quotation tiene triggers habilitados, y SQL Server no permite OUTPUT
+        // sin INTO cuando la tabla destino tiene triggers (Error 334).
         var ids = await _context.Database
             .SqlQuery<int>($@"
+                SET NOCOUNT ON;
+                DECLARE @IdsInsertados TABLE (Value INT);
                 INSERT INTO request_quotation (customer_code, email, telefono, notas, total, estatus, created_at)
-                OUTPUT INSERTED.id AS [Value]
+                OUTPUT INSERTED.id INTO @IdsInsertados(Value)
                 VALUES ({request.CustomerCode}, {request.Email}, {request.Phone}, {request.Notes},
-                        {total}, 'PENDIENTE', GETDATE())")
+                        {total}, 'PENDIENTE', GETDATE());
+                SELECT Value FROM @IdsInsertados;")
             .ToListAsync();
 
         var preOrdenId = ids.First();
@@ -191,9 +197,10 @@ public class PreOrdenRepository : IPreOrdenRepository
         if (cabecera == null)
             return null;
 
-        var items = await _context.Database
-            .SqlQuery<PreOrdenItemResponse>($@"
+        var itemRows = await _context.Database
+            .SqlQuery<PreOrdenItemRow>($@"
                 SELECT
+                    request_id      AS RequestId,
                     id              AS Id,
                     product_code    AS ProductCode,
                     cantidad        AS Quantity,
@@ -203,6 +210,20 @@ public class PreOrdenRepository : IPreOrdenRepository
                 WHERE request_id = {id}
                 ORDER BY id")
             .ToListAsync();
+
+        var items = itemRows
+            .Select(r => new PreOrdenItemResponse
+            {
+                Id = r.Id,
+                ProductCode = r.ProductCode,
+                Quantity = r.Quantity,
+                UnitPrice = r.UnitPrice,
+                Amount = r.Amount
+            })
+            .ToList();
+
+        var stockRows = await ConsultarStockAsync(requestId: id, estatus: null);
+        EnriquecerItems(id, items, stockRows);
 
         return new PreOrdenResponse
         {
@@ -218,6 +239,195 @@ public class PreOrdenRepository : IPreOrdenRepository
             CreatedAt = cabecera.CreatedAt,
             Items = items
         };
+    }
+
+    public async Task<IReadOnlyList<PreOrdenResponse>> GetAllDetalladoAsync(string? estatus)
+    {
+        var filtro = string.IsNullOrWhiteSpace(estatus) ? null : estatus.Trim().ToUpper();
+
+        var cabeceras = await _context.Database
+            .SqlQuery<PreOrdenCabeceraRow>($@"
+                SELECT
+                    id            AS Id,
+                    folio         AS Folio,
+                    customer_code AS CustomerCode,
+                    email         AS Email,
+                    telefono    AS Phone,
+                    notas       AS Notes,
+                    estatus     AS Status,
+                    is_approved AS IsApproved,
+                    total       AS Total,
+                    created_at  AS CreatedAt
+                FROM request_quotation
+                WHERE ({filtro} IS NULL OR estatus = {filtro})
+                ORDER BY created_at DESC")
+            .ToListAsync();
+
+        if (cabeceras.Count == 0)
+            return [];
+
+        var itemRows = await _context.Database
+            .SqlQuery<PreOrdenItemRow>($@"
+                SELECT
+                    ri.request_id     AS RequestId,
+                    ri.id             AS Id,
+                    ri.product_code   AS ProductCode,
+                    ri.cantidad       AS Quantity,
+                    ri.precio_unitario AS UnitPrice,
+                    ri.importe        AS Amount
+                FROM request_quotation_items ri
+                JOIN request_quotation rq ON rq.id = ri.request_id
+                WHERE ({filtro} IS NULL OR rq.estatus = {filtro})
+                ORDER BY ri.request_id, ri.id")
+            .ToListAsync();
+
+        // Un solo golpe de stock para todos los items de todas las pre-órdenes.
+        var stockRows = await ConsultarStockAsync(requestId: null, estatus: filtro);
+
+        var itemsPorRequest = itemRows
+            .GroupBy(r => r.RequestId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(r => new PreOrdenItemResponse
+                {
+                    Id = r.Id,
+                    ProductCode = r.ProductCode,
+                    Quantity = r.Quantity,
+                    UnitPrice = r.UnitPrice,
+                    Amount = r.Amount
+                }).ToList());
+
+        var resultado = new List<PreOrdenResponse>(cabeceras.Count);
+        foreach (var cabecera in cabeceras)
+        {
+            var items = itemsPorRequest.TryGetValue(cabecera.Id, out var lista) ? lista : [];
+            EnriquecerItems(cabecera.Id, items, stockRows);
+
+            resultado.Add(new PreOrdenResponse
+            {
+                Id = cabecera.Id,
+                Folio = cabecera.Folio,
+                CustomerCode = cabecera.CustomerCode,
+                Email = cabecera.Email,
+                Phone = cabecera.Phone,
+                Notes = cabecera.Notes,
+                Status = cabecera.Status,
+                IsApproved = cabecera.IsApproved,
+                Total = cabecera.Total,
+                CreatedAt = cabecera.CreatedAt,
+                Items = items
+            });
+        }
+
+        return resultado;
+    }
+
+    /// <summary>
+    /// Stock entregable por almacén de venta (sales_enabled = 1) para los items de una
+    /// pre-orden (<paramref name="requestId"/>) o de todas las de un estatus. Se une
+    /// directamente contra los items (matcheando por código o SKU) para no depender de
+    /// la expansión de listas en IN (...), que EF no realiza aquí.
+    /// </summary>
+    private async Task<List<StockAlmacenRow>> ConsultarStockAsync(int? requestId, string? estatus)
+    {
+        return await _context.Database
+            .SqlQuery<StockAlmacenRow>($@"
+                SELECT
+                    ri.request_id   AS RequestId,
+                    ri.product_code AS ProductCode,
+                    w.id            AS AlmacenId,
+                    w.name          AS Almacen,
+                    SUM(i.deliverable_qty) AS StockDisponible
+                FROM request_quotation_items ri
+                JOIN request_quotation   rq ON rq.id = ri.request_id
+                JOIN starnet_products    p ON (p.code = ri.product_code OR p.spec = ri.product_code)
+                JOIN starnet_inventories i ON i.product_id = p.id
+                JOIN starnet_warehouses  w ON w.id = i.warehouse_id
+                WHERE w.sales_enabled = 1
+                  AND ({requestId} IS NULL OR ri.request_id = {requestId})
+                  AND ({estatus} IS NULL OR rq.estatus = {estatus})
+                GROUP BY ri.request_id, ri.product_code, w.id, w.name
+                HAVING SUM(i.deliverable_qty) > 0")
+            .ToListAsync();
+    }
+
+    /// <summary>
+    /// Completa cada item con el desglose de existencias por almacén, la cantidad
+    /// cubierta, la faltante (agotada) y una sugerencia de reparto (greedy: del almacén
+    /// con más stock al que menos).
+    /// </summary>
+    private static void EnriquecerItems(
+        int requestId, List<PreOrdenItemResponse> items, List<StockAlmacenRow> stockRows)
+    {
+        foreach (var item in items)
+        {
+            var almacenes = stockRows
+                .Where(r => r.RequestId == requestId && r.ProductCode == item.ProductCode)
+                .GroupBy(r => new { r.AlmacenId, r.Almacen })
+                .Select(g => new StockAlmacenResponse
+                {
+                    AlmacenId = g.Key.AlmacenId,
+                    Almacen = g.Key.Almacen,
+                    StockDisponible = g.Sum(x => x.StockDisponible)
+                })
+                .OrderByDescending(a => a.StockDisponible)
+                .ToList();
+
+            var stockTotal = almacenes.Sum(a => a.StockDisponible);
+            var cubierta = Math.Min(item.Quantity, stockTotal);
+
+            // Reparto greedy: llena desde el almacén con más stock.
+            var restante = cubierta;
+            foreach (var almacen in almacenes)
+            {
+                if (restante <= 0)
+                    break;
+
+                var surtir = Math.Min(restante, almacen.StockDisponible);
+                almacen.CantidadSurtir = surtir;
+                restante -= surtir;
+            }
+
+            item.StockDisponible = stockTotal;
+            item.CantidadCubierta = cubierta;
+            item.CantidadAgotada = item.Quantity - cubierta;
+            item.Almacenes = almacenes;
+            item.EstadoSurtido = CalcularEstadoSurtido(item.Quantity, stockTotal, almacenes);
+        }
+    }
+
+    private static string CalcularEstadoSurtido(
+        int solicitado, int stockTotal, List<StockAlmacenResponse> almacenes)
+    {
+        if (stockTotal <= 0)
+            return "SIN_STOCK";
+
+        if (stockTotal < solicitado)
+            return "AGOTADO_PARCIAL";
+
+        // Hay stock suficiente: ¿lo cubre un solo almacén o hay que distribuir?
+        return almacenes.Any(a => a.StockDisponible >= solicitado)
+            ? "CUBIERTA"
+            : "DISTRIBUIR";
+    }
+
+    private sealed class PreOrdenItemRow
+    {
+        public int RequestId { get; set; }
+        public int Id { get; set; }
+        public string ProductCode { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+        public decimal UnitPrice { get; set; }
+        public decimal Amount { get; set; }
+    }
+
+    private sealed class StockAlmacenRow
+    {
+        public int RequestId { get; set; }
+        public string ProductCode { get; set; } = string.Empty;
+        public int AlmacenId { get; set; }
+        public string Almacen { get; set; } = string.Empty;
+        public int StockDisponible { get; set; }
     }
 
     private sealed class PreOrdenCabeceraRow

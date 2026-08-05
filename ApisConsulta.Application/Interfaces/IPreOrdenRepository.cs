@@ -11,4 +11,5 @@ public interface IPreOrdenRepository
     Task<IReadOnlyList<PreOrdenResumenResponse>> GetAllAsync(string? estatus);
     Task<IReadOnlyList<PreOrdenMetricasResponse>> GetMetricasAsync(string? estatus);
     Task<PreOrdenResponse?> GetByIdAsync(int id);
+    Task<IReadOnlyList<PreOrdenResponse>> GetAllDetalladoAsync(string? estatus);
 }

@@ -47,6 +47,21 @@ public class PreOrdenesController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// Lists every pre-order with the full per-item detail: stock per warehouse,
+    /// covered/shortage quantity, fulfillment status and suggested allocation.
+    /// English-facing endpoint (reviewed by the China team); absolute route so it is
+    /// served at /api/preorders/detail while the rest stays under /api/preordenes.
+    /// </summary>
+    [HttpGet("/api/preorders/detail")]
+    public async Task<IActionResult> GetAllDetail([FromQuery] string? status)
+    {
+        var query = new GetPreOrdersDetailQuery { Status = status };
+        var result = await _mediator.Send(query);
+
+        return Ok(result);
+    }
+
     /// <summary>Devuelve métricas resumidas por pre-orden: cliente, lo solicitado y lo confirmado.</summary>
     [HttpGet("metricas")]
     public async Task<IActionResult> GetMetricas([FromQuery] string? status)
