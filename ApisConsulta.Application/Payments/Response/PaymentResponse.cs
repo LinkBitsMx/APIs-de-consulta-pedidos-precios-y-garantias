@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace ApisConsulta.Application.Payments.Response;
 
 /// <summary>
@@ -59,4 +61,155 @@ public class PaymentResponse
     public string? Comentary { get; set; }
     public string? Observations { get; set; }
     public DateTime? CreatedAt { get; set; }
+
+    /// <summary>Payment as the Kingdee document, ready to be pushed to Kingdee.</summary>
+    public KingdeePaymentFields Kingdee { get; set; } = new();
+
+    /// <summary>
+    /// Sales the payment was applied to (<c>PaymentApplications</c>), each with the folio
+    /// of the document generated in Kingdee. A payment can be split across several sales,
+    /// so this is a list; it comes back empty while the payment has not been applied.
+    /// </summary>
+    public List<PaymentSaleResponse> KingdeeSales { get; set; } = [];
+}
+
+/// <summary>
+/// One application of the payment against a Kingdee sale
+/// (<c>PaymentApplications</c>). Which table holds the sale depends on
+/// <see cref="IsPos"/>.
+/// </summary>
+public class PaymentSaleResponse
+{
+    /// <summary>
+    /// Sale in Kingdee (<c>PaymentApplications.SaleId</c>): <c>kingdee_sales_invoices.id</c>
+    /// when <see cref="IsPos"/> is false, <c>KingDeeSalesPOS.Id</c> when it is true.
+    /// Zero while the sale has not been generated in Kingdee yet.
+    /// </summary>
+    public int SaleId { get; set; }
+
+    /// <summary>The sale is a point-of-sale ticket (<c>PaymentApplications.isPOS</c>).</summary>
+    public bool IsPos { get; set; }
+
+    /// <summary>
+    /// Folio of the sale in Kingdee: <c>kingdee_sales_invoices.bill_code</c> (example:
+    /// <c>XSCKD100949</c>) or <c>KingDeeSalesPOS.Folio</c> for a POS ticket (example:
+    /// <c>10040002604109633</c>). Null when the sale has not been generated yet, or when
+    /// the id no longer resolves in Kingdee.
+    /// </summary>
+    public string? Folio { get; set; }
+
+    /// <summary>Amount of the payment applied to this sale (<c>AmountApplied</c>).</summary>
+    public decimal AmountApplied { get; set; }
+
+    public DateTime? AppliedDate { get; set; }
+}
+
+/// <summary>
+/// The payment expressed with the field names of the Kingdee document (充值单). Half of
+/// them come from what BambooERP already stores and are resolved from its catalogs; the
+/// other half are Kingdee identifiers persisted on <c>Payments</c> as they were sent.
+/// </summary>
+public class KingdeePaymentFields
+{
+    /// <summary>单据编号. Sent by the caller; <see cref="PaymentResponse.Folio"/> is Bamboo's own.</summary>
+    [JsonPropertyName("FBillNo")]
+    public string? FBillNo { get; set; }
+
+    /// <summary>单据日期. From <c>Payments.PaymentDate</c>.</summary>
+    [JsonPropertyName("FDate")]
+    public DateTime? FDate { get; set; }
+
+    /// <summary>业务组织.</summary>
+    [JsonPropertyName("FBizOrgId")]
+    public int? FBizOrgId { get; set; }
+    [JsonPropertyName("FBizOrg")]
+    public string? FBizOrg { get; set; }
+
+    /// <summary>结算组织.</summary>
+    [JsonPropertyName("FSETTLEORGID")]
+    public int? FSETTLEORGID { get; set; }
+    [JsonPropertyName("FSETTLEORG")]
+    public string? FSETTLEORG { get; set; }
+
+    /// <summary>
+    /// 充值门店. Resolved from the department of the payment:
+    /// <c>departments.branchId</c> → <c>starnet_branches.id</c> / <c>.code</c>.
+    /// </summary>
+    [JsonPropertyName("FBranchID")]
+    public int? FBranchID { get; set; }
+    [JsonPropertyName("Fbranch")]
+    public string? Fbranch { get; set; }
+
+    /// <summary>
+    /// 业务员. Resolved from <c>catUsers.code_seller</c>, stored as
+    /// <c>kingdeeId_kingdeeCode_branchId</c>.
+    /// </summary>
+    [JsonPropertyName("FSalerID")]
+    public int? FSalerID { get; set; }
+    [JsonPropertyName("FSaler")]
+    public string? FSaler { get; set; }
+
+    /// <summary>收银员.</summary>
+    [JsonPropertyName("FCashierID")]
+    public int? FCashierID { get; set; }
+    [JsonPropertyName("FCashier")]
+    public string? FCashier { get; set; }
+
+    /// <summary>客户. From <c>customers.customer_id</c> / <c>customer_code</c>.</summary>
+    [JsonPropertyName("FCustomerID")]
+    public int? FCustomerID { get; set; }
+    [JsonPropertyName("FCustomer")]
+    public string? FCustomer { get; set; }
+
+    /// <summary>结算币别.</summary>
+    [JsonPropertyName("FSETTLECURRENCYID")]
+    public int? FSETTLECURRENCYID { get; set; }
+    [JsonPropertyName("FSETTLECURRENCY")]
+    public string? FSETTLECURRENCY { get; set; }
+
+    /// <summary>备注. From <c>Payments.Comentary</c>.</summary>
+    [JsonPropertyName("FNote")]
+    public string? FNote { get; set; }
+
+    /// <summary>卡号.</summary>
+    [JsonPropertyName("FCardID")]
+    public int? FCardID { get; set; }
+    [JsonPropertyName("FCard")]
+    public string? FCard { get; set; }
+
+    /// <summary>会员卡号.</summary>
+    [JsonPropertyName("FMemberID")]
+    public int? FMemberID { get; set; }
+    [JsonPropertyName("FMember")]
+    public string? FMember { get; set; }
+
+    /// <summary>账户.</summary>
+    [JsonPropertyName("FAccountID")]
+    public int? FAccountID { get; set; }
+    [JsonPropertyName("FAccount")]
+    public string? FAccount { get; set; }
+
+    /// <summary>充值金额.</summary>
+    [JsonPropertyName("FRechargeAmount")]
+    public decimal? FRechargeAmount { get; set; }
+
+    /// <summary>收款方式.</summary>
+    [JsonPropertyName("FReceiveTypeID")]
+    public int? FReceiveTypeID { get; set; }
+    [JsonPropertyName("FReceiveType")]
+    public string? FReceiveType { get; set; }
+
+    /// <summary>收款币别.</summary>
+    [JsonPropertyName("FReceiveCurrencyID")]
+    public int? FReceiveCurrencyID { get; set; }
+    [JsonPropertyName("FReceiveCurrency")]
+    public string? FReceiveCurrency { get; set; }
+
+    /// <summary>收款金额. From <c>Payments.Amount</c>.</summary>
+    [JsonPropertyName("FReceiveAmt")]
+    public decimal? FReceiveAmt { get; set; }
+
+    /// <summary>汇率.</summary>
+    [JsonPropertyName("FExchangeRate")]
+    public decimal? FExchangeRate { get; set; }
 }

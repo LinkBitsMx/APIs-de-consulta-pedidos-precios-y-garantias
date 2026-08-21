@@ -70,6 +70,21 @@ public class CreatePaymentCommandHandler : IRequestHandler<CreatePaymentCommand,
             throw new PaymentValidationException(
                 "departmentId is required: the user has no branch to take it from.");
 
+        // Kingdee currencies: the receipt currency defaults to the settlement one, and the
+        // rate defaults to 1 while both match. When they differ the rate has to come in the
+        // request — BambooERP has no exchange rate table to take it from.
+        var receiptCurrencySent = !string.IsNullOrWhiteSpace(data.ReceiveCurrencyCode);
+        var settleCurrency = Upper(data.SettleCurrencyCode);
+        var receiveCurrency = receiptCurrencySent ? Upper(data.ReceiveCurrencyCode) : settleCurrency;
+        var receiveCurrencyId = data.ReceiveCurrencyId ?? (receiptCurrencySent ? null : data.SettleCurrencyId);
+        var sameCurrency = string.Equals(settleCurrency, receiveCurrency, StringComparison.Ordinal);
+
+        if (!sameCurrency && data.ExchangeRate == null)
+            throw new PaymentValidationException(
+                "exchangeRate is required when settleCurrencyCode and receiveCurrencyCode differ.");
+
+        var exchangeRate = data.ExchangeRate ?? (sameCurrency ? 1m : null);
+
         return await _repository.CreateAsync(new CreatePaymentData
         {
             CustomerId = references.CustomerId.Value,
@@ -87,10 +102,35 @@ public class CreatePaymentCommandHandler : IRequestHandler<CreatePaymentCommand,
             SaleId = references.SaleId ?? 0,
             UploadedById = data.UploadedById,
             SellerId = data.SellerId,
-            DepartmentId = departmentId.Value
+            DepartmentId = departmentId.Value,
+
+            KingdeeBillNo = Trim(data.KingdeeBillNo),
+            BizOrgId = data.BizOrgId,
+            BizOrgCode = Trim(data.BizOrgCode),
+            SettleOrgId = data.SettleOrgId,
+            SettleOrgCode = Trim(data.SettleOrgCode),
+            CashierId = data.CashierId,
+            CashierCode = Trim(data.CashierCode),
+            KingdeeAccountId = data.KingdeeAccountId,
+            KingdeeAccountCode = Trim(data.KingdeeAccountCode),
+            ReceiveTypeId = data.ReceiveTypeId,
+            ReceiveTypeCode = Trim(data.ReceiveTypeCode),
+            SettleCurrencyId = data.SettleCurrencyId,
+            SettleCurrencyCode = settleCurrency,
+            ReceiveCurrencyId = receiveCurrencyId,
+            ReceiveCurrencyCode = receiveCurrency,
+            ExchangeRate = exchangeRate,
+            CardId = data.CardId,
+            CardNumber = Trim(data.CardNumber),
+            MemberId = data.MemberId,
+            MemberCardNumber = Trim(data.MemberCardNumber),
+            RechargeAmount = data.RechargeAmount
         });
     }
 
     private static string? Trim(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string? Upper(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
 }

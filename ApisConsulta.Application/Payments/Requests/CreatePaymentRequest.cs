@@ -78,4 +78,108 @@ public class CreatePaymentRequest
     /// (PENDIENTE), which is how the ERP registers a payment awaiting validation.
     /// </summary>
     public int? StatusId { get; set; }
+
+    // ---------------------------------------------------------------------------------
+    // Kingdee fields. Every one of them is optional so the payload the ERP already sends
+    // keeps working. They are Kingdee's own identifiers: BambooERP has no catalog to
+    // validate them against, so they are stored exactly as they arrive.
+    //
+    // The rest of the Kingdee document is derived from what the payment already carries
+    // and must not be sent: FDate, FBranchID, FSalerID, FCustomerID, FNote and
+    // FReceiveAmt. See PaymentResponse.Kingdee.
+    // ---------------------------------------------------------------------------------
+
+    /// <summary>
+    /// <c>FBillNo</c> (单据编号): document number in Kingdee. It does not replace
+    /// <c>folio</c>, which the database keeps generating on its own.
+    /// </summary>
+    [MaxLength(100)]
+    public string? KingdeeBillNo { get; set; }
+
+    /// <summary><c>FBizOrgId</c> (业务组织).</summary>
+    public int? BizOrgId { get; set; }
+
+    /// <summary><c>FBizOrg</c>.</summary>
+    [MaxLength(50)]
+    public string? BizOrgCode { get; set; }
+
+    /// <summary><c>FSETTLEORGID</c> (结算组织).</summary>
+    public int? SettleOrgId { get; set; }
+
+    /// <summary><c>FSETTLEORG</c>.</summary>
+    [MaxLength(50)]
+    public string? SettleOrgCode { get; set; }
+
+    /// <summary>
+    /// <c>FCashierID</c> (收银员). The cashier in Kingdee, which is not necessarily
+    /// <see cref="UploadedById"/> — that one is the Bamboo user uploading the voucher.
+    /// </summary>
+    public int? CashierId { get; set; }
+
+    /// <summary><c>FCashier</c>.</summary>
+    [MaxLength(50)]
+    public string? CashierCode { get; set; }
+
+    /// <summary>
+    /// <c>FAccountID</c> (账户). Kingdee's account; unrelated to <c>accountId</c> in the
+    /// response, which is the receiving company derived from <see cref="BankId"/>.
+    /// </summary>
+    public int? KingdeeAccountId { get; set; }
+
+    /// <summary><c>FAccount</c>.</summary>
+    [MaxLength(50)]
+    public string? KingdeeAccountCode { get; set; }
+
+    /// <summary>
+    /// <c>FReceiveTypeID</c> (收款方式). Kingdee's receipt method, independent from
+    /// <see cref="PaymentFormId"/> (the SAT payment form).
+    /// </summary>
+    public int? ReceiveTypeId { get; set; }
+
+    /// <summary><c>FReceiveType</c>.</summary>
+    [MaxLength(50)]
+    public string? ReceiveTypeCode { get; set; }
+
+    /// <summary><c>FSETTLECURRENCYID</c> (结算币别).</summary>
+    public int? SettleCurrencyId { get; set; }
+
+    /// <summary><c>FSETTLECURRENCY</c>. Example: <c>MXN</c>.</summary>
+    [MaxLength(10)]
+    public string? SettleCurrencyCode { get; set; }
+
+    /// <summary><c>FReceiveCurrencyID</c> (收款币别).</summary>
+    public int? ReceiveCurrencyId { get; set; }
+
+    /// <summary>
+    /// <c>FReceiveCurrency</c>. Defaults to <see cref="SettleCurrencyCode"/> when omitted.
+    /// </summary>
+    [MaxLength(10)]
+    public string? ReceiveCurrencyCode { get; set; }
+
+    /// <summary>
+    /// <c>FExchangeRate</c> (汇率). Defaults to 1 when both currencies are the same.
+    /// </summary>
+    [Range(0.000001, double.MaxValue, ErrorMessage = "exchangeRate must be greater than zero.")]
+    public decimal? ExchangeRate { get; set; }
+
+    /// <summary><c>FCardID</c> (卡号).</summary>
+    public int? CardId { get; set; }
+
+    /// <summary><c>FCard</c>.</summary>
+    [MaxLength(50)]
+    public string? CardNumber { get; set; }
+
+    /// <summary><c>FMemberID</c> (会员卡号).</summary>
+    public int? MemberId { get; set; }
+
+    /// <summary><c>FMember</c>.</summary>
+    [MaxLength(50)]
+    public string? MemberCardNumber { get; set; }
+
+    /// <summary>
+    /// <c>FRechargeAmount</c> (充值金额): amount credited to the card. It is not
+    /// <see cref="Amount"/> (<c>FReceiveAmt</c>), which is what was actually collected.
+    /// </summary>
+    [Range(0.01, double.MaxValue, ErrorMessage = "rechargeAmount must be greater than zero.")]
+    public decimal? RechargeAmount { get; set; }
 }

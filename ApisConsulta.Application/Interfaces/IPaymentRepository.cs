@@ -1,3 +1,4 @@
+using ApisConsulta.Application.Payments.Queries;
 using ApisConsulta.Application.Payments.Requests;
 using ApisConsulta.Application.Payments.Response;
 
@@ -14,6 +15,12 @@ public interface IPaymentRepository
     Task<PaymentResponse> CreateAsync(CreatePaymentData data);
 
     Task<PaymentResponse?> GetByIdAsync(int paymentId);
+
+    /// <summary>
+    /// Page of payments matching the filter, plus the breakdown by status of the whole
+    /// filtered set.
+    /// </summary>
+    Task<PagedPaymentsResponse> GetPaymentsAsync(PaymentsFilter filter);
 }
 
 /// <summary>References of a payment as they exist (or not) in BambooERP.</summary>
@@ -62,4 +69,30 @@ public class CreatePaymentData
     public int UploadedById { get; set; }
     public int? SellerId { get; set; }
     public int DepartmentId { get; set; }
+
+    /// <summary>
+    /// Kingdee identifiers, stored as they arrive: BambooERP has no catalog to resolve
+    /// them against.
+    /// </summary>
+    public string? KingdeeBillNo { get; set; }
+    public int? BizOrgId { get; set; }
+    public string? BizOrgCode { get; set; }
+    public int? SettleOrgId { get; set; }
+    public string? SettleOrgCode { get; set; }
+    public int? CashierId { get; set; }
+    public string? CashierCode { get; set; }
+    public int? KingdeeAccountId { get; set; }
+    public string? KingdeeAccountCode { get; set; }
+    public int? ReceiveTypeId { get; set; }
+    public string? ReceiveTypeCode { get; set; }
+    public int? SettleCurrencyId { get; set; }
+    public string? SettleCurrencyCode { get; set; }
+    public int? ReceiveCurrencyId { get; set; }
+    public string? ReceiveCurrencyCode { get; set; }
+    public decimal? ExchangeRate { get; set; }
+    public int? CardId { get; set; }
+    public string? CardNumber { get; set; }
+    public int? MemberId { get; set; }
+    public string? MemberCardNumber { get; set; }
+    public decimal? RechargeAmount { get; set; }
 }

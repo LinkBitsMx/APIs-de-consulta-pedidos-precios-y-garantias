@@ -11,7 +11,7 @@ API REST para consultar información del sistema BambooERP desde canales externo
 - **API 5:** Garantías
 - **API 6:** Pre-órdenes (alta de órdenes sin confirmar)
 - **API 7:** Sales (detalle, totales y estatus por almacén — endpoints en inglés)
-- **API 8:** Payments (alta de pagos — endpoints en inglés)
+- **API 8:** Payments (alta y consulta de pagos, con filtro por estatus — endpoints en inglés)
 
 ## Requisitos
 
@@ -757,7 +757,29 @@ POST /api/payments
   "saleFolio": "2608-00012",
   "uploadedById": 426,
   "sellerId": 123,
-  "comentary": "Transferencia recibida"
+  "comentary": "Transferencia recibida",
+
+  "kingdeeBillNo": "SKCZD000123",
+  "bizOrgId": 847244,
+  "bizOrgCode": "801",
+  "settleOrgId": 847244,
+  "settleOrgCode": "801",
+  "cashierId": 1772,
+  "cashierCode": "GW000041",
+  "kingdeeAccountId": 100012,
+  "kingdeeAccountCode": "BANK001",
+  "receiveTypeId": 5,
+  "receiveTypeCode": "SKFS03",
+  "settleCurrencyId": 1,
+  "settleCurrencyCode": "MXN",
+  "receiveCurrencyId": 1,
+  "receiveCurrencyCode": "MXN",
+  "exchangeRate": 1.0,
+  "cardId": 5001,
+  "cardNumber": "6234567890",
+  "memberId": 8801,
+  "memberCardNumber": "VIP00034",
+  "rechargeAmount": 504.70
 }
 ```
 
@@ -779,6 +801,41 @@ opcional:
 Se validan contra la BD el cliente, la cuenta bancaria (que exista y no esté
 deshabilitada), la forma de pago, el usuario, el vendedor, el departamento, el estatus y
 el folio de la venta. Cualquiera que no exista devuelve `400` con el detalle.
+
+#### Campos de Kingdee
+
+El equipo de Kingdee necesita mandar los campos de su documento de recarga (充值单). Seis
+de ellos ya salen de lo que el pago guarda hoy y **no se envían**; el resto son
+identificadores propios de Kingdee que se guardan en `Payments` tal cual llegan (Bamboo no
+tiene catálogo contra el cual validarlos).
+
+| Campo Kingdee | Campo del body | De dónde sale |
+|---|---|---|
+| `FBillNo` | `kingdeeBillNo` | Se envía. No sustituye a `folio`, que lo sigue generando el trigger. |
+| `FDate` | — | `paymentDate` |
+| `FBizOrgId` / `FBizOrg` | `bizOrgId` / `bizOrgCode` | Se envía |
+| `FSETTLEORGID` / `FSETTLEORG` | `settleOrgId` / `settleOrgCode` | Se envía |
+| `FBranchID` / `Fbranch` | — | `departmentId` → `departments.branchId` → `starnet_branches.id` / `.code` |
+| `FSalerID` / `FSaler` | — | `sellerId` → `catUsers.code_seller` (`kingdeeId_kingdeeCode_branchId`) |
+| `FCashierID` / `FCashier` | `cashierId` / `cashierCode` | Se envía. Es el cajero de Kingdee, distinto de `uploadedById`. |
+| `FCustomerID` / `FCustomer` | — | `customerCode` → `customers.customer_id` / `customer_code` |
+| `FSETTLECURRENCYID` / `FSETTLECURRENCY` | `settleCurrencyId` / `settleCurrencyCode` | Se envía |
+| `FNote` | — | `comentary` |
+| `FCardID` / `FCard` | `cardId` / `cardNumber` | Se envía |
+| `FMemberID` / `FMember` | `memberId` / `memberCardNumber` | Se envía |
+| `FAccountID` / `FAccount` | `kingdeeAccountId` / `kingdeeAccountCode` | Se envía. La cuenta de Kingdee, no el `accountId` de la respuesta (que es la empresa receptora). |
+| `FRechargeAmount` | `rechargeAmount` | Se envía |
+| `FReceiveTypeID` / `FReceiveType` | `receiveTypeId` / `receiveTypeCode` | Se envía. La forma de cobro de Kingdee, independiente de `paymentFormId` (SAT). |
+| `FReceiveCurrencyID` / `FReceiveCurrency` | `receiveCurrencyId` / `receiveCurrencyCode` | Se envía. Por defecto toma la moneda de liquidación. |
+| `FReceiveAmt` | — | `amount` |
+| `FExchangeRate` | `exchangeRate` | Se envía. Por defecto `1` cuando ambas monedas coinciden; **obligatorio si difieren** (BambooERP no tiene tabla de tipo de cambio). |
+
+Todos son opcionales: el body que ya usa el ERP sigue funcionando sin cambios. La
+respuesta incluye el bloque `kingdee` con el documento armado y los nombres `F*` tal cual,
+listo para empujarlo a Kingdee.
+
+> Las columnas se agregan con `sql/2026-08-06_payments_kingdee_fields.sql`, que es
+> idempotente y sólo agrega columnas nullable (no afecta al ERP ni a los triggers).
 
 **Respuesta (201 Created):**
 
@@ -812,9 +869,71 @@ el folio de la venta. Cualquiera que no exista devuelve `400` con el detalle.
   "paymentFilePath": "comprobante-1785955090.jpeg",
   "comentary": "Transferencia recibida",
   "observations": null,
-  "createdAt": "2026-08-05T12:38:10.07"
+  "createdAt": "2026-08-05T12:38:10.07",
+  "kingdee": {
+    "FBillNo": "SKCZD000123",
+    "FDate": "2026-08-05T00:00:00",
+    "FBizOrgId": 847244,
+    "FBizOrg": "801",
+    "FSETTLEORGID": 847244,
+    "FSETTLEORG": "801",
+    "FBranchID": 1148514,
+    "Fbranch": "801.10.04",
+    "FSalerID": 1772,
+    "FSaler": "GW000041",
+    "FCashierID": 1772,
+    "FCashier": "GW000041",
+    "FCustomerID": 5966485,
+    "FCustomer": "SIN2A100652",
+    "FSETTLECURRENCYID": 1,
+    "FSETTLECURRENCY": "MXN",
+    "FNote": "Transferencia recibida",
+    "FCardID": 5001,
+    "FCard": "6234567890",
+    "FMemberID": 8801,
+    "FMember": "VIP00034",
+    "FAccountID": 100012,
+    "FAccount": "BANK001",
+    "FRechargeAmount": 504.70,
+    "FReceiveTypeID": 5,
+    "FReceiveType": "SKFS03",
+    "FReceiveCurrencyID": 1,
+    "FReceiveCurrency": "MXN",
+    "FReceiveAmt": 504.70,
+    "FExchangeRate": 1.0
+  },
+  "kingdeeSales": [
+    {
+      "saleId": 201363,
+      "isPos": false,
+      "folio": "XSCKD100949",
+      "amountApplied": 5166.67,
+      "appliedDate": "2026-05-18T17:29:44.433"
+    }
+  ]
 }
 ```
+
+El bloque `kingdee` sale con los nombres `F*` exactos (respeta mayúsculas y minúsculas
+tal cual los pidieron), no en `camelCase` como el resto de la respuesta.
+
+### Folio de la venta en Kingdee (`kingdeeSales`)
+
+Las ventas contra las que se aplicó el pago salen de `PaymentApplications`, y el folio del
+documento que se generó en Kingdee vive en una de dos tablas, según `isPOS`:
+
+| `isPOS` | Tabla | Se busca por | Folio |
+|---|---|---|---|
+| `0` | `kingdee_sales_invoices` | `id = SaleId` | `bill_code`. Ejemplo: `XSCKD100949` |
+| `1` | `KingDeeSalesPOS` | `Id = SaleId` | `Folio`. Ejemplo: `10040002604109633` |
+
+Es una **lista**, no un campo: un mismo pago se puede repartir entre varias ventas. El pago
+`PAY-0526-000011`, por ejemplo, está aplicado a tres facturas (`XSCKD100949`,
+`XSCKD100955` y `XSCKD100950`) con su propio `amountApplied` cada una.
+
+> `saleId: 0` con `folio: null` significa que el pago ya está aplicado pero **la venta
+> todavía no se genera en Kingdee**. La aplicación se publica igual, en lugar de
+> desaparecer, para que se distinga de un pago sin aplicar (que trae `kingdeeSales` vacío).
 
 ### Consultar pago
 
@@ -823,6 +942,101 @@ GET /api/payments/{id}
 ```
 
 Devuelve el pago con la misma estructura de la respuesta anterior. `404` si no existe.
+
+### Listar pagos por estatus
+
+```
+GET /api/payments?status=REJECTED,IN_PROCESS
+```
+
+Listado paginado de pagos. **El estatus se filtra y se publica en inglés**, nunca con el
+nombre en español que BambooERP guarda en `catEstatus`:
+
+| `status` | `catEstatus` | Qué es |
+|---|---|---|
+| `VALID` | 29 `Valido` | Pago validado |
+| `REJECTED` | 30 `Rechazado` | Pago rechazado |
+| `PENDING` | 4 `PENDIENTE` | Registrado, todavía sin revisar (es el estatus con el que nace un pago) |
+| `IN_PROCESS` | 17 `EN PROCESO` | En proceso de validación |
+| `CANCELLED` | 8 `CANCELADO` | Cancelado |
+
+Se pueden pedir varios separados por coma (`status=REJECTED,IN_PROCESS`). Si se omite,
+entran todos. Un valor fuera de la lista devuelve `400` en vez de una página vacía, para
+que un typo no se lea como "no hay ninguno".
+
+**Filtros**
+
+| Parámetro | Descripción |
+|---|---|
+| `status` | Uno o varios estatus en inglés, separados por coma. |
+| `statusId` | Estatus por id interno (`catEstatus.idEstatus`), para quien trabaje con el id. |
+| `customerCode` | Cliente (`customers.customer_code`). |
+| `folio` | Folio del pago, coincidencia parcial. Ej.: `PAY-0826`. |
+| `saleFolio` | Folio de la venta de **BambooERP** a la que se aplicó el pago (`quotation.billCode`). Ej.: `2608-00022`. |
+| `kingdeeSaleFolio` | Folio de la venta tal como se generó en **Kingdee**: `kingdee_sales_invoices.bill_code` (ej.: `XSCKD100949`) o `KingDeeSalesPOS.Folio` si es ticket POS (ej.: `10040002604109633`). |
+| `branchCode` | Sucursal **del pago** (`starnet_branches.code`), vía `Payments.DepartmentId` → `departments.branchId`. Es la misma que sale en `kingdee.Fbranch`. Ej.: `801.10.02`. |
+| `startDate` / `endDate` | Rango sobre la **fecha de pago** (`paymentDate`). |
+| `saleStartDate` / `saleEndDate` | Rango sobre la **fecha de la venta de BambooERP** (`quotation.created_at`, la del `saleFolio`). Deja fuera los pagos sin venta relacionada. |
+| `kingdeeSaleStartDate` / `kingdeeSaleEndDate` | Rango sobre la **fecha de la venta en Kingdee**: `kingdee_sales_invoices.bill_date` o `KingDeeSalesPOS.BillDate` según `isPOS`. Conserva el pago si al menos una de sus aplicaciones cae en el rango. |
+| `paymentFormId` | Forma de pago SAT (`sat_FormaPago.ID`). |
+| `bankId` | Cuenta bancaria (`bancos.id`). |
+| `departmentId` | Sucursal/departamento del pago. |
+| `sellerId` | Vendedor al que se acredita el pago. |
+| `paymentType` | `payment`, `credit` o `advance`. |
+| `page` / `pageSize` | Paginación. Default `1` / `50`, máximo `200`. |
+
+**Respuesta**
+
+Cada elemento de `payments[]` trae **el registro completo del pago**, idéntico al de
+`GET /api/payments/{id}` (incluido el bloque `kingdee`). Además, `summary` desglosa
+**todo lo que matcheó el filtro**, no solo la página, y `totalAmount` es la suma de esos
+importes:
+
+```json
+{
+  "page": 1,
+  "pageSize": 50,
+  "totalRecords": 1002,
+  "totalPages": 21,
+  "totalAmount": 6132011.20,
+  "summary": [
+    { "statusId": 17, "statusRaw": "EN PROCESO", "status": "IN_PROCESS", "count": 5, "amount": 0.00 },
+    { "statusId": 30, "statusRaw": "Rechazado", "status": "REJECTED", "count": 997, "amount": 6132011.20 }
+  ],
+  "payments": [ ... ]
+}
+```
+
+> `amount` viene vacío mientras el pago no se valida — el ERP lo llena al validarlo. Por
+> eso `PENDING` e `IN_PROCESS` suman `0.00` aunque tengan pagos: es el dato real, no un
+> error del cálculo.
+
+Los tres rangos de fecha son **independientes y se combinan con AND**: se puede pedir, por
+ejemplo, los pagos cobrados en agosto de ventas facturadas en Kingdee en mayo. `endDate`,
+`saleEndDate` y `kingdeeSaleEndDate` incluyen el día completo cuando se mandan sin hora.
+
+```
+GET /api/payments?branchCode=801.10.02&status=VALID
+GET /api/payments?saleFolio=2608-00022
+GET /api/payments?kingdeeSaleFolio=XSCKD100949
+GET /api/payments?saleStartDate=2026-07-01&saleEndDate=2026-07-31
+GET /api/payments?kingdeeSaleStartDate=2026-05-01&kingdeeSaleEndDate=2026-05-31
+```
+
+Hay **dos folios de venta distintos** y cada uno tiene su filtro: `saleFolio` es la venta de
+BambooERP (la que sale en la respuesta como `saleFolio`) y `kingdeeSaleFolio` es el
+documento generado en Kingdee (el que sale en `kingdeeSales[].folio`). Ambos son
+coincidencia exacta.
+
+Cuando `kingdeeSaleFolio` se combina con `kingdeeSaleStartDate`/`kingdeeSaleEndDate`, las
+condiciones se exigen sobre **la misma venta**: un pago repartido entre varias facturas no
+entra por tener el folio en una y la fecha en otra.
+
+> Los filtros `kingdeeSale*` consultan `PaymentApplications`, `kingdee_sales_invoices` y
+> `KingDeeSalesPOS`. Si el ambiente no tiene esas tablas, esos filtros fallan; el resto del
+> endpoint no las toca.
+
+Los pagos salen del más nuevo al más viejo (`p.Id DESC`).
 
 ## Testing
 

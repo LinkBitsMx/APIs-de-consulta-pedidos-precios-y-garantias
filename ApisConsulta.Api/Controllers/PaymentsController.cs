@@ -42,6 +42,27 @@ public class PaymentsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Paged list of payments, filtered by status in English: <c>VALID</c>,
+    /// <c>REJECTED</c>, <c>PENDING</c>, <c>IN_PROCESS</c> or <c>CANCELLED</c>, several of
+    /// them comma separated (<c>status=REJECTED,IN_PROCESS</c>). Every payment carries the
+    /// same full record the detail endpoint returns, and <c>summary</c> adds how many —
+    /// and how much — each status adds up to across the whole filter.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> GetPayments([FromQuery] PaymentsFilter filter)
+    {
+        try
+        {
+            var result = await _mediator.Send(new GetPaymentsQuery { Filter = filter });
+            return Ok(result);
+        }
+        catch (PaymentValidationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     /// <summary>Payment as it is stored, with its bank account, payment form and status.</summary>
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
