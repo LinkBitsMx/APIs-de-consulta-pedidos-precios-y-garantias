@@ -12,6 +12,7 @@ API REST para consultar información del sistema BambooERP desde canales externo
 - **API 6:** Pre-órdenes (alta de órdenes sin confirmar)
 - **API 7:** Sales (detalle, totales y estatus por almacén — endpoints en inglés)
 - **API 8:** Payments (alta y consulta de pagos, con filtro por estatus — endpoints en inglés)
+- **API 9:** Credit Sales (ventas a crédito con sus abonos y métricas de cobranza — endpoints en inglés)
 
 ## Requisitos
 
@@ -1037,6 +1038,224 @@ entra por tener el folio en una y la fecha en otra.
 > endpoint no las toca.
 
 Los pagos salen del más nuevo al más viejo (`p.Id DESC`).
+
+## API 9: Credit Sales
+
+```
+GET /api/credit-sales
+```
+
+Listado paginado de **las ventas que se fueron a crédito, cada una con sus abonos**, más
+las métricas de todo lo que matcheó el filtro: cuántas ventas a crédito hay y cuánto tarda
+el cliente en pagarlas. Endpoint en inglés (revisado por el equipo de China): rutas, campos
+y estatus están en inglés.
+
+### Qué es una venta a crédito
+
+La venta a crédito **no es la `quotation`**. Es el documento generado en Kingdee
+(`kingdee_sales_invoices` con `isCredit = 1` y sin cancelar) — la misma definición que usa
+el ERP en su vista `ordersCredits`, y el único lugar donde viven el saldo (`balance`) y la
+fecha de liquidación (`conclusion_date`) de la venta.
+
+La venta de BambooERP (la que publica `/api/sales`) se alcanza por `quoteId` y sale como
+`saleFolio`, así que hay **dos folios** en cada registro:
+
+| Campo | Qué es | Ejemplo |
+|---|---|---|
+| `folio` | Folio de la venta en Kingdee (`kingdee_sales_invoices.bill_code`) | `XSCKD166673` |
+| `saleFolio` | Folio de la misma venta en BambooERP (`quotation.billCode`) | `2605-05331` |
+| `invoiceCode` | Folio de la factura fiscal, si se facturó | `MEX79556` |
+
+Los abonos son las aplicaciones de un pago contra ese documento (`PaymentApplications` con
+`StatusId = 1` e `isPOS = 0`, unidas a `Payments`). **Un pago se puede repartir entre varias
+ventas**, así que lo que se publica por venta es la parte aplicada (`amount`), no el pago
+completo (`paymentAmount`).
+
+> El par legacy `applyPaymentsCredits`/`paymentsCredits` no se lee: sus filas se migraron a
+> `PaymentApplications`, que es donde el ERP escribe hoy.
+
+### Estatus
+
+Se filtra y se publica **en inglés**, nunca con el nombre en español que el ERP calcula:
+
+| `status` | ERP (`ordersCredits`) | Qué es |
+|---|---|---|
+| `PAID` | `Pagada` | `balance = 0`: la venta ya se liquidó |
+| `OVERDUE` | `Pago vencido` | Todavía se debe y ya pasó la fecha de vencimiento |
+| `PENDING` | `Pendiente de pago` | Todavía se debe, pero dentro del plazo |
+
+Se pueden pedir varios separados por coma (`status=OVERDUE,PENDING` para todo lo que sigue
+debiéndose). Si se omite, entran todos. Un valor fuera de la lista devuelve `400` en vez de
+una página vacía, para que un typo no se lea como "no hay ninguna".
+
+### Plazo y vencimiento
+
+`dueDate` y `daysRemaining` se calculan **exactamente como lo hace el ERP**, para que la API
+y la pantalla nunca discrepen:
+
+- Cliente en **`Proceso CheckPlus`**: el plazo es `creditDays` planos desde `billDate`.
+- Resto de los clientes: `creditDays + 3`, **sin contar domingos**.
+
+Los días de crédito salen de la línea de crédito del cliente (`CreditLines.creditDays`) y el
+proceso de su solicitud (`credits.processType`).
+
+### Filtros
+
+| Parámetro | Descripción |
+|---|---|
+| `status` | Uno o varios estatus en inglés, separados por coma. |
+| `startDate` / `endDate` | Rango sobre la **fecha de la venta** (`billDate`). `endDate` incluye el día completo cuando se manda sin hora. |
+| `customerCode` | Cliente (`customers.customer_code`). |
+| `folio` | Folio de la venta en Kingdee, **coincidencia parcial**. Ej.: `XSCKD16`. |
+| `saleFolio` | Folio de la venta en BambooERP (`quotation.billCode`), coincidencia exacta. |
+| `branchCode` | Sucursal de la venta en Kingdee (`starnet_branches.code` vía `kingdee_sales_invoices.branch_id`). Es la sucursal **de primer nivel** — ej.: `801` — no el código por departamento que filtra `/api/sales`. |
+| `sellerId` | Vendedor de la venta (`quotation.usuarioId`). |
+| `minDaysToSettle` / `maxDaysToSettle` | Acota por `daysToSettle`. Una venta sin liquidar cuenta los días que lleva abierta. |
+| `includePayments` | Traer los abonos de cada venta. Default `true`; ponerlo en `false` aligera la respuesta cuando solo importan las métricas. |
+| `includeCustomerSummary` | Traer el bloque `byCustomer`. Default `true`; cuesta una agregación sobre todo el filtro. |
+| `page` / `pageSize` | Paginación. Default `1` / `50`, máximo `200`. |
+
+### Respuesta
+
+```json
+{
+  "page": 1,
+  "pageSize": 50,
+  "totalRecords": 8957,
+  "totalPages": 180,
+  "summary": {
+    "totalSales": 8957,
+    "totalCustomers": 166,
+    "totalAmount": 398789624.49,
+    "paidAmount": 352466184.35,
+    "outstandingBalance": 46323440.14,
+    "paidCount": 7957,
+    "overdueCount": 1000,
+    "pendingCount": 0,
+    "overdueBalance": 46323440.14,
+    "avgDaysToSettle": 38.70,
+    "weightedAvgDaysToSettle": 42.55,
+    "maxDaysToSettle": 452,
+    "avgDaysToFirstPayment": 33.54,
+    "avgDaysToLastPayment": 35.85,
+    "avgDaysOutstanding": 150.36,
+    "paymentsCount": 10051,
+    "paymentsTotal": 351504525.98
+  },
+  "byCustomer": [
+    {
+      "customerCode": "AAA2A102159",
+      "customer": "WILLY JINCHAO WU LI",
+      "creditLimit": 3000000.00,
+      "creditUsed": 2811865.00,
+      "creditDays": 30,
+      "sales": 24,
+      "totalAmount": 1802394.00,
+      "outstandingBalance": 0.00,
+      "paidCount": 24,
+      "overdueCount": 0,
+      "avgDaysToSettle": 23.21,
+      "weightedAvgDaysToSettle": 22.34,
+      "maxDaysToSettle": 31
+    }
+  ],
+  "sales": [
+    {
+      "invoiceId": 267078,
+      "folio": "XSCKD166673",
+      "saleFolio": "2605-05331",
+      "saleId": 98698,
+      "billDate": "2026-05-30T12:44:49.483",
+      "customerCode": "MIC3A100158",
+      "customer": "QUINTANA CASILLAS IVAN",
+      "branchCode": "801",
+      "warehouse": "Cedis Ceylan",
+      "seller": "Juan Osvaldo Perea Ceja",
+      "total": 54400.00,
+      "paid": 54400.00,
+      "balance": 0.00,
+      "creditDays": 30,
+      "dueDate": "2026-07-07T00:00:00",
+      "settledAt": "2026-06-11T16:05:32.33",
+      "daysToSettle": 12,
+      "isSettled": true,
+      "daysRemaining": 21,
+      "daysOverdue": 0,
+      "status": "PAID",
+      "statusRaw": "Pagada",
+      "firstPaymentDate": "2026-06-04T00:00:00",
+      "lastPaymentDate": "2026-06-04T00:00:00",
+      "daysToFirstPayment": 5,
+      "daysToLastPayment": 5,
+      "paymentsCount": 1,
+      "paymentsTotal": 54400.00,
+      "payments": [
+        {
+          "paymentId": 44650,
+          "folio": "PAY-0626-000900",
+          "amount": 54400.00,
+          "paymentAmount": 54400.00,
+          "paymentDate": "2026-06-04T00:00:00",
+          "appliedDate": "2026-06-11T16:05:32.357",
+          "daysFromSale": 5,
+          "paymentFormCode": "03",
+          "paymentForm": "Transferencia electrónica de fondos",
+          "bank": "MIFEL",
+          "reference": "9069923",
+          "paymentType": "credit",
+          "statusId": 29,
+          "statusRaw": "Valido",
+          "status": "VALID"
+        }
+      ]
+    }
+  ]
+}
+```
+
+`summary` y `byCustomer` cubren **todo lo que matcheó el filtro**, no solo la página. Las
+ventas salen de la más nueva a la más vieja.
+
+### Cuánto tarda un cliente en pagarnos
+
+Hay **dos maneras de medirlo** y el endpoint publica las dos, porque no dan lo mismo:
+
+| Métrica | Se mide sobre | Para qué sirve |
+|---|---|---|
+| `daysToSettle` | `billDate` → `settledAt` (`conclusion_date`) | El dato del ERP: cuándo quedó saldada la venta en el sistema. Es el que aparece en la pantalla de créditos. |
+| `daysToLastPayment` | `billDate` → `paymentDate` del último abono | Cuándo pagó **el cliente** de verdad. |
+
+La diferencia es el rezago del propio ERP en aplicar los pagos, no del cliente: en los datos
+actuales el promedio global es **38.70 días** contra **35.85**. Por eso cada abono trae
+`paymentDate` (cuándo pagó) y `appliedDate` (cuándo se aplicó) por separado.
+
+Un par de detalles que conviene tener presentes al leer los números:
+
+- **`daysToSettle` de una venta sin liquidar cuenta hasta hoy.** Así se lee como "cuánto
+  lleva abierta". Para promediar solo lo ya cobrado está `avgDaysToSettle` (que solo toma
+  las liquidadas); para lo que sigue abierto, `avgDaysOutstanding`.
+- **`weightedAvgDaysToSettle` pondera por el importe de cada venta**, así que una factura
+  grande pagada tarde pesa más que una chica. Es el número a leer como DSO; el promedio
+  simple trata igual una venta de $500 que una de $500,000.
+- **`daysFromSale` puede salir negativo**: el cliente pagó antes de que se facturara la
+  venta (anticipos).
+- **Una venta `PAID` puede traer `daysOverdue > 0`**: se liquidó, pero después de su fecha
+  de vencimiento. Es la semántica del ERP, se conserva tal cual.
+
+```
+GET /api/credit-sales?status=OVERDUE
+GET /api/credit-sales?status=OVERDUE,PENDING&includePayments=false
+GET /api/credit-sales?customerCode=AAA2A102159
+GET /api/credit-sales?startDate=2026-05-01&endDate=2026-05-31&status=PAID
+GET /api/credit-sales?minDaysToSettle=60
+GET /api/credit-sales?folio=XSCKD166
+GET /api/credit-sales?saleFolio=2605-05331
+```
+
+> El endpoint consulta `kingdee_sales_invoices`, `PaymentApplications`, `Payments`,
+> `CreditLines` y `credits`. En un ambiente donde `kingdee_sales_invoices` esté vacía o
+> purgada devuelve cero ventas: no es un error del endpoint, es que ahí no hay ventas a
+> crédito que reportar.
 
 ## Testing
 
